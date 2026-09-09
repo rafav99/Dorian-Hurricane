@@ -9,16 +9,16 @@ The project segments the cloud structure, tracks the eye, measures its translati
 
 ## Scientific objective
 
-The input is a sequence of **35 RGB satellite frames**, separated by **10 min**. From these images, the analysis is designed to estimate four quantities:
+The input is a sequence of **35 RGB satellite frames**, separated by **10 min**. From these images, the analysis estimates four quantities:
 
-1. the segmented area of the visible cloud structure, \(A(t)\),
-2. the trajectory of the hurricane eye, \(\mathbf{r}_{\rm eye}(t)\),
-3. the eye translation velocity, \(v(t)\),
-4. a local angular velocity, \(\omega(t)\), inferred from the apparent displacement of cloud texture between consecutive frames.
+1. the segmented area of the visible cloud structure, $A(t)$,
+2. the trajectory of the hurricane eye, $\mathbf{r}_{\mathrm{eye}}(t)$,
+3. the eye translation velocity, $v(t)$,
+4. a local angular velocity, $\omega(t)$, inferred from the apparent displacement of cloud texture between consecutive frames.
 
 The problem is interesting because the cloud field is **not a rigid body**: it translates, rotates and deforms simultaneously. The approach therefore separates the analysis into a global segmentation/tracking stage and a local texture-matching stage for rotation.
 
-> **Scope.** This is an image-based physical analysis, not a meteorological forecast. In particular, the segmented cloud area is not the same quantity as the operational hurricane wind-field area, and the estimated angular velocity is a local image-texture proxy rather than a direct wind-speed measurement.
+> **Scope.** This is an image-based physical analysis, not a meteorological forecast. The segmented cloud area is not the same quantity as the operational hurricane wind-field area, and the estimated angular velocity is a local image-texture proxy rather than a direct wind-speed measurement.
 
 ---
 
@@ -27,24 +27,24 @@ The problem is interesting because the cloud field is **not a rigid body**: it t
 | Parameter | Value |
 | --- | ---: |
 | Number of frames | 35 |
-| Time between frames | 10 min = \(1/6\) h |
+| Time between frames | 10 min = $1/6$ h |
 | Total observed interval | 5 h 40 min |
 | Spatial scale used in the analysis | 1 km/pixel |
 | Image representation | RGB, with HSV used for segmentation |
 
-With the adopted spatial scale \(s=1\ \mathrm{km/pixel}\), each segmented pixel contributes
+With the adopted spatial scale $s=1\,\mathrm{km/pixel}$, each segmented pixel contributes
 
 $$
-A_{\rm pixel}=s^2=1\ \mathrm{km^2}.
+A_{\mathrm{pixel}} = s^2 = 1\,\mathrm{km^2}.
 $$
 
 The time interval is
 
 $$
-\Delta t=\frac{10}{60}\ \mathrm{h}=\frac{1}{6}\ \mathrm{h}.
+\Delta t = \frac{10}{60}\,\mathrm{h} = \frac{1}{6}\,\mathrm{h}.
 $$
 
-This means that a displacement of one pixel between consecutive frames corresponds to 1 km over 10 min.
+Therefore, a displacement of one pixel between consecutive frames corresponds to 1 km over 10 min.
 
 ---
 
@@ -74,19 +74,19 @@ RGB frame
 
 ## Why HSV?
 
-The satellite frames contain a strongly colored hurricane structure over a comparatively desaturated background. For segmentation, it is therefore more convenient to separate **color saturation** from brightness and hue.
+The satellite frames contain a strongly colored hurricane structure over a comparatively desaturated background. For segmentation, it is therefore useful to separate **color saturation** from brightness and hue.
 
-Each RGB frame is transformed to HSV and only the saturation channel \(S(x,y)\) is used to create the initial binary mask:
+Each RGB frame is transformed to HSV and only the saturation channel $S(x,y)$ is used to create the initial binary mask:
 
 $$
-M_0(x,y)=
+M_0(x,y) =
 \begin{cases}
-1, & S(x,y)>0.4,\\
-0, & S(x,y)\le 0.4.
+1, & S(x,y) > 0.4,\\
+0, & S(x,y) \le 0.4.
 \end{cases}
 $$
 
-The threshold \(S>0.4\) was selected to isolate the central cloud system while rejecting most of the low-saturation background.
+The threshold $S>0.4$ was selected to isolate the central cloud system while rejecting most of the low-saturation background.
 
 ## Morphological cleanup
 
@@ -96,7 +96,7 @@ $$
 M_1 = (M_0 \bullet B) \circ B,
 $$
 
-where \(\bullet\) denotes closing, \(\circ\) denotes opening, and \(B\) is the disk structuring element.
+where $\bullet$ denotes closing, $\circ$ denotes opening, and $B$ is the disk structuring element.
 
 Conceptually:
 
@@ -110,38 +110,37 @@ The result is a compact binary representation of the main visible cloud structur
 
 # 2. Eye detection and temporal tracking
 
-The eye appears as an interior hole in the segmented cloud structure. To isolate all holes, the mask is first filled and then compared with the unfilled mask:
+The eye appears as an interior hole in the segmented cloud structure. The mask is first hole-filled, producing a new mask $F(M_1)$. The interior holes are then isolated as
 
 $$
-H = \operatorname{fill}(M_1) \land \neg M_1.
+H = F(M_1) \land \neg M_1.
 $$
 
-Here \(H\) contains only the interior gaps of the cloud mask.
+Here $H$ contains only the interior gaps of the segmented cloud system.
 
 ## Initial eye detection
 
-In the first frame, the largest connected component of \(H\) is selected as the eye. Its centroid is
+In the first frame, the largest connected component of $H$ is selected as the eye. Its centroid is
 
 $$
-\mathbf{c}_1=(x_1,y_1).
+\mathbf{c}_1 = (x_1,y_1).
 $$
 
 ## Tracking in subsequent frames
 
-For frame \(k>1\), each interior hole provides a candidate centroid \(\mathbf{c}_{k,j}\). The selected eye is the candidate closest to the previous eye position:
+For frame $k>1$, each interior hole provides a candidate centroid $\mathbf{c}_{k,j}$. The selected eye is the candidate with minimum Euclidean distance to the previous eye position:
 
 $$
-j^*=\underset{j}{\operatorname{argmin}}\;
-\left\|\mathbf{c}_{k,j}-\mathbf{c}_{k-1}\right\|_2.
+j^* = \arg\min_j \|\mathbf{c}_{k,j}-\mathbf{c}_{k-1}\|_2.
 $$
 
-Then
+The tracked eye centroid is then
 
 $$
-\mathbf{c}_k=\mathbf{c}_{k,j^*}.
+\mathbf{c}_k = \mathbf{c}_{k,j^*}.
 $$
 
-This simple nearest-centroid rule introduces temporal information without requiring a learned detector or a full optical-flow tracker.
+This nearest-centroid rule introduces temporal information without requiring a learned detector or a full optical-flow tracker.
 
 After the eye has been identified, the other internal holes are filled so that the area measurement refers to one homogeneous cloud structure with the eye excluded.
 
@@ -149,32 +148,32 @@ After the eye has been identified, the other internal holes are filled so that t
 
 # 3. Cloud-area estimation
 
-If the final binary mask in frame \(k\) contains \(N_k\) white pixels, then
+If the final binary mask in frame $k$ contains $N_k$ white pixels, then
 
 $$
-A_k=N_k s^2.
+A_k = N_k s^2.
 $$
 
-With \(s=1\ \mathrm{km/pixel}\), this reduces numerically to
+With $s=1\,\mathrm{km/pixel}$, this reduces numerically to
 
 $$
-A_k=N_k\ \mathrm{km^2}.
+A_k = N_k\,\mathrm{km^2}.
 $$
 
 The analysis gives
 
 $$
-A_{\min}=349451\ \mathrm{km^2},
+A_{\min} = 349451\,\mathrm{km^2},
 $$
 
 $$
-A_{\max}=405507\ \mathrm{km^2}.
+A_{\max} = 405507\,\mathrm{km^2}.
 $$
 
 The range of the segmented visible cloud structure is therefore
 
 $$
-\Delta A = A_{\max}-A_{\min}=56056\ \mathrm{km^2}.
+\Delta A = A_{\max}-A_{\min} = 56056\,\mathrm{km^2}.
 $$
 
 This quantity should be interpreted as the area of the **segmented cloud structure under this image-processing criterion**, not as the area enclosed by a specific meteorological wind threshold.
@@ -186,41 +185,42 @@ This quantity should be interpreted as the area of the **segmented cloud structu
 Let the eye centroid in consecutive frames be
 
 $$
-\mathbf{c}_{k-1}=(x_{k-1},y_{k-1}),
-\qquad
-\mathbf{c}_{k}=(x_k,y_k).
+\mathbf{c}_{k-1} = (x_{k-1},y_{k-1}),
+$$
+
+$$
+\mathbf{c}_{k} = (x_k,y_k).
 $$
 
 The inter-frame displacement in pixels is
 
 $$
-d_k=\sqrt{(x_k-x_{k-1})^2+(y_k-y_{k-1})^2}.
+d_k = \sqrt{(x_k-x_{k-1})^2 + (y_k-y_{k-1})^2}.
 $$
 
-Including the spatial calibration \(s\), the physical displacement is
+Including the spatial calibration $s$, the physical displacement is
 
 $$
-\Delta r_k=s\,d_k.
+\Delta r_k = s\,d_k.
 $$
 
 The translation velocity is therefore
 
 $$
-v_k=\frac{s}{\Delta t}
-\sqrt{(x_k-x_{k-1})^2+(y_k-y_{k-1})^2}.
+v_k = \frac{s}{\Delta t}
+\sqrt{(x_k-x_{k-1})^2 + (y_k-y_{k-1})^2}.
 $$
 
-For this dataset, \(s=1\ \mathrm{km/pixel}\) and \(\Delta t=1/6\ \mathrm{h}\), so
+For this dataset, $s=1\,\mathrm{km/pixel}$ and $\Delta t=1/6\,\mathrm{h}$, so
 
 $$
-v_k=6\sqrt{(x_k-x_{k-1})^2+(y_k-y_{k-1})^2}
-\quad \mathrm{km/h}.
+v_k = 6\sqrt{(x_k-x_{k-1})^2 + (y_k-y_{k-1})^2}\,\mathrm{km/h}.
 $$
 
 The measured mean translation velocity is
 
 $$
-\boxed{\bar v = 12.36\ \mathrm{km/h}}.
+\bar{v} = 12.36\,\mathrm{km/h}.
 $$
 
 ---
@@ -234,21 +234,21 @@ Estimating rotation is the least direct part of the problem. A global rigid-imag
 The reference sector is defined by
 
 $$
-140\le r\le170\ \mathrm{pixels},
+140 \le r \le 170\,\mathrm{pixels},
 $$
 
 $$
--15^\circ\le\theta\le15^\circ.
+-15^\circ \le \theta \le 15^\circ.
 $$
 
-For a tracked eye center \((x_c,y_c)\), polar samples are mapped to image coordinates using
+For a tracked eye center $(x_c,y_c)$, polar samples are mapped to image coordinates using
 
 $$
-x=x_c+r\cos\theta,
+x = x_c + r\cos\theta,
 $$
 
 $$
-y=y_c-r\sin\theta.
+y = y_c - r\sin\theta.
 $$
 
 The minus sign in the second equation accounts for the image coordinate system, where the vertical pixel coordinate increases downwards.
@@ -259,12 +259,12 @@ $$
 P_k(r,\theta,c),
 $$
 
-where \(c\in\{R,G,B\}\).
+where $c \in \{R,G,B\}$.
 
 Because the sector contains 31 radii, 31 angles and 3 color channels, each comparison uses
 
 $$
-31\times31\times3=2883
+31\times31\times3 = 2883
 $$
 
 scalar RGB values.
@@ -274,28 +274,24 @@ scalar RGB values.
 Candidate angular shifts are tested over
 
 $$
-\Delta\theta\in[-40^\circ,40^\circ]
+\Delta\theta \in [-40^\circ,40^\circ]
 $$
 
-in steps of \(1^\circ\).
+in steps of $1^\circ$.
 
-For each candidate shift, the current-frame pattern is sampled at \(\theta+\Delta\theta\) and compared with the previous-frame reference pattern using the mean squared error
+For each candidate shift, the current-frame pattern is sampled at $\theta+\Delta\theta$ and compared with the previous-frame reference pattern using the mean squared error
 
 $$
-E_k(\Delta\theta)=
+E_k(\Delta\theta) =
 \frac{1}{N}
 \sum_{r,\theta,c}
-\left[
-P_{k-1}(r,\theta,c)-P_k(r,\theta+\Delta\theta,c)
-\right]^2.
+\left[P_{k-1}(r,\theta,c)-P_k(r,\theta+\Delta\theta,c)\right]^2.
 $$
 
-The estimated angular displacement is the minimizer
+The estimated angular displacement is the value that minimizes this error:
 
 $$
-\widehat{\Delta\theta}_k=
-\underset{\Delta\theta}{\operatorname{argmin}}\;
-E_k(\Delta\theta).
+\widehat{\Delta\theta}_k = \arg\min_{\Delta\theta} E_k(\Delta\theta).
 $$
 
 In the idealized limit of a perfectly rigidly rotating pattern, the correctly shifted patterns would coincide and the minimum error would approach zero. Real clouds evolve between frames, so the minimum is non-zero and the method should be interpreted as finding the **most similar local texture alignment**.
@@ -309,25 +305,25 @@ In the idealized limit of a perfectly rigidly rotating pattern, the correctly sh
 The corresponding angular velocity is
 
 $$
-\omega_k=\frac{\widehat{\Delta\theta}_k}{\Delta t}.
+\omega_k = \frac{\widehat{\Delta\theta}_k}{\Delta t}.
 $$
 
-Since \(\Delta t=1/6\ \mathrm{h}\),
+Since $\Delta t=1/6\,\mathrm{h}$,
 
 $$
-\boxed{\omega_k=6\,\widehat{\Delta\theta}_k\quad \mathrm{deg/h}}.
+\omega_k = 6\,\widehat{\Delta\theta}_k\,\mathrm{deg/h}.
 $$
 
 The mean estimated angular velocity across the sequence is
 
 $$
-\boxed{\bar\omega=20.12\ \mathrm{deg/h}}.
+\bar{\omega} = 20.12\,\mathrm{deg/h}.
 $$
 
-The integer-degree angular scan also implies a native angular-velocity quantization of
+The integer-degree angular scan implies a native angular-velocity quantization of
 
 $$
-6\ \mathrm{deg/h}
+6\,\mathrm{deg/h}
 $$
 
 for each individual frame-to-frame estimate. A finer angular search or interpolation around the MSE minimum would reduce this discretization.
@@ -335,7 +331,7 @@ for each individual frame-to-frame estimate. A finer angular search or interpola
 The cumulative orientation used in the tracking visualization is updated as
 
 $$
-\phi_k=\phi_{k-1}+\widehat{\Delta\theta}_k.
+\phi_k = \phi_{k-1} + \widehat{\Delta\theta}_k.
 $$
 
 ---
@@ -374,7 +370,7 @@ The approach is deliberately transparent: every estimated physical quantity can 
 
 ### Segmentation
 
-The threshold \(S>0.4\) is fixed for all frames. Changes in image color mapping, illumination or satellite product could require a different threshold. Morphological operations also modify the boundary by a few pixels, which propagates into the measured area.
+The threshold $S>0.4$ is fixed for all frames. Changes in image color mapping, illumination or satellite product could require a different threshold. Morphological operations also modify the boundary by a few pixels, which propagates into the measured area.
 
 ### Eye tracking
 
@@ -413,7 +409,7 @@ Several improvements would turn the current interpretable pipeline into a more c
 A particularly interesting extension would be to estimate
 
 $$
-\omega=\omega(r,\theta,t),
+\omega = \omega(r,\theta,t),
 $$
 
 rather than a single local angular displacement per frame pair, allowing the non-rigid rotation of different cloud bands to be studied explicitly.

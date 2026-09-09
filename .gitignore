@@ -1,0 +1,7 @@
+*.asv
+*.fig
+*.m~
+.DS_Store
+__MACOSX/
+slprj/
+codegen/
